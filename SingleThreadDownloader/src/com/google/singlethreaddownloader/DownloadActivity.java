@@ -140,14 +140,14 @@ public class DownloadActivity extends Activity {
 	private void updateListViewItem(ViewHolder holder, DownloadTask task) {
 		// Log.d(TAG, "updateListViewItem "+task);
 		holder.title.setText(task.name);
-		holder.progress.setProgress(task.percent);
+		holder.progress.setProgress((int) task.percent);
 		switch (task.status) {
 		case NOT_STARTED:
 			holder.status.setText("开始");
 			break;
 		case RUNNING:
 			// holder.status.setText("下载中");
-			holder.status.setText(String.valueOf(task.percent*100/100)+"%");
+			holder.status.setText(String.format("%.2f", task.percent) + "%");
 			break;
 		case PAUSING:
 			holder.status.setText("暂停");
@@ -251,8 +251,7 @@ public class DownloadActivity extends Activity {
 								task.status = Status.PAUSING;
 								Future<DownloadResult> future = mFutures
 										.get(task.id);
-								future.cancel(true);
-
+								System.out.println("cancel result is "+future.cancel(true));
 								break;
 							case FINISHED:
 								task.status = Status.REMOVED;

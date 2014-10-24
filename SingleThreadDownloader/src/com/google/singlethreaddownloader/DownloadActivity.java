@@ -3,6 +3,7 @@ package com.google.singlethreaddownloader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -13,6 +14,7 @@ import android.R.integer;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -51,6 +53,8 @@ public class DownloadActivity extends Activity {
 	private static final int CMD_UPDATE_TASK = 1 << 1;
 	private static final int CMD_UPDATE_LISTVIEW = CMD_UPDATE_TASK + 1;
 
+	private TaskDBService mTaskDBService;
+
 	private Handler mHandler = new Handler() {
 		public void handleMessage(android.os.Message msg) {
 			int what = msg.what;
@@ -80,10 +84,12 @@ public class DownloadActivity extends Activity {
 	public DownloadTaskListener mDownloadTaskListener = new DownloadTaskListener() {
 		@Override
 		public void onTaskStatusChanged(DownloadTask task) {
+			// 状态改变保存数据库
+			//mTaskDBService.save(task);
 			int size = mListItem.size();
 			for (int i = 0; i < size; i++) {
 				DownloadTask oldTask = mListItem.get(i);
-				if (oldTask.id.equals(task.id)) {
+				if (oldTask.key.equals(task.key)) {
 					mListItem.set(i, task);
 					// 异步刷新界面
 					mHandler.sendMessage(mHandler.obtainMessage(
@@ -96,7 +102,9 @@ public class DownloadActivity extends Activity {
 		@Override
 		public void onTaskFinished(DownloadTask task) {
 			// 及时清理引用
-			mFutures.remove(task.id);
+			mFutures.remove(task.key);
+			// 状态改变保存数据库
+			mTaskDBService.update(task);
 		}
 	};
 
@@ -117,17 +125,29 @@ public class DownloadActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		DownloadApp.setContext(getApplicationContext());
 		setContentView(R.layout.activity_download);
 		mListView = (ListView) findViewById(R.id.downloadListView);
 		mListItem = new ArrayList<DownloadTask>();
-		for (int i = 0; i < 30; i++) {
-			DownloadTask task = new DownloadTask();
-			task.id = String.valueOf(i);
-			task.name = "task " + i;
-			task.percent = 0;
-			task.status = Status.NOT_STARTED;
+		String path = Environment.getExternalStorageDirectory().toString();
+		mTaskDBService = new TaskDBService(this);
+		// for (int i = 0; i < 30; i++) {
+		// DownloadTask task = new DownloadTask();
+		// // 取当前时刻作为key
+		// task.key = String.valueOf(System.currentTimeMillis());
+		// task.name = "task " + i;
+		// task.percent = 0;
+		// task.status = Status.NOT_STARTED;
+		// task.downloadURL = "http://down.mumayi.com/1";
+		// task.path = path + "/file/" + UUID.randomUUID().toString() + ".apk";
+		// mTaskDBService.create(task);
+		// // task.registeDownloadListener(mDownloadTaskListener);
+		// // mListItem.add(task);
+		// }
+		mListItem = mTaskDBService.getAllTask();
+		// 添加监听器
+		for (DownloadTask task : mListItem) {
 			task.registeDownloadListener(mDownloadTaskListener);
-			mListItem.add(task);
 		}
 		mDownloadListAdapter = new DownloadListAdapter(this);
 		mListView.setAdapter(mDownloadListAdapter);
@@ -135,6 +155,7 @@ public class DownloadActivity extends Activity {
 		mExecutor = Executors.newFixedThreadPool(THREADS);
 		mFutures = new HashMap<String, Future<DownloadResult>>();
 		mTemperaryExecutor = Executors.newCachedThreadPool();
+
 	}
 
 	private void updateListViewItem(ViewHolder holder, DownloadTask task) {
@@ -170,7 +191,7 @@ public class DownloadActivity extends Activity {
 		int size = mListItem.size();
 		for (int i = 0; i < size; i++) {
 			DownloadTask oldTask = mListItem.get(i);
-			if (oldTask.id.equals(task.id)) {
+			if (oldTask.key.equals(task.key)) {
 				mListItem.remove(i);
 				// 异步刷新界面
 				mHandler.sendMessage(mHandler
@@ -208,7 +229,7 @@ public class DownloadActivity extends Activity {
 
 		@Override
 		public long getItemId(int position) {
-			return Long.valueOf(mListItem.get(position).id);
+			return Long.valueOf(mListItem.get(position).key);
 		}
 
 		@Override
@@ -242,7 +263,7 @@ public class DownloadActivity extends Activity {
 							case PAUSING:
 								// 加入等待队列
 								task.status = Status.WAITING;
-								mFutures.put(task.id, mExecutor.submit(task));
+								mFutures.put(task.key, mExecutor.submit(task));
 								// 把状态告诉监听者。不然在executor上等待时无法告知监听者
 								task.onTaskStatusChanged(task);
 								break;
@@ -250,8 +271,9 @@ public class DownloadActivity extends Activity {
 							case WAITING:// 等待状态下也要取消提交到executor上的任务
 								task.status = Status.PAUSING;
 								Future<DownloadResult> future = mFutures
-										.get(task.id);
-								System.out.println("cancel result is "+future.cancel(true));
+										.get(task.key);
+								System.out.println("cancel result is "
+										+ future.cancel(true));
 								break;
 							case FINISHED:
 								task.status = Status.REMOVED;
@@ -263,6 +285,7 @@ public class DownloadActivity extends Activity {
 								break;
 							}
 							// 把状态告诉监听者。不然在executor上等待时无法告知监听者
+							mTaskDBService.update(task);
 							task.onTaskStatusChanged(task);
 						}
 					});

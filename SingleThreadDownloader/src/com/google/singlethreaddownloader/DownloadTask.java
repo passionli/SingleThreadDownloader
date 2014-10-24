@@ -2,52 +2,98 @@ package com.google.singlethreaddownloader;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 
-import android.R.integer;
+import android.app.Application;
+import android.content.Context;
 import android.os.Environment;
-import android.util.Log;
 
 import com.google.singlethreaddownloader.DownloadResult.DownloadResultStatus;
 
 public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		DownloadTaskListener {
 	/**
-	 * 
+	 * 序列化id
 	 */
 	private static final long serialVersionUID = -2679706700528032437L;
 	private static final String TAG = "DownloadTask";
-	public String id;
+	/**
+	 * 任务key
+	 */
+	public String key;
+	/**
+	 * 名称
+	 */
 	public String name;
+	/**
+	 * 完成比例
+	 */
 	public float percent;
+	/**
+	 * 开始位置
+	 */
 	public int startPosition;
+	/**
+	 * 结束位置
+	 */
 	public int endPosition;
-	public int completeSize;
-	public int fileSize;
-	public String localFile;
+	/**
+	 * 完成大小
+	 */
+	public int downloadSize;
+	/**
+	 * 文件总大小
+	 */
+	public int length;
+	/**
+	 * 文件本地路径
+	 */
+	public String path;
+	/**
+	 * 任务状态
+	 */
 	public Status status;
-	private boolean isFinished;
-	public String spec;
+	/**
+	 * 是否完成
+	 */
+	public boolean isFinished;
+	/**
+	 * 任务网络url
+	 */
+	public String downloadURL;
+	/**
+	 * 任务监听器队列
+	 */
 	private List<DownloadTaskListener> mDownloadTaskListeners;
+	/**
+	 * 数据库业务类
+	 */
+	private TaskDBService mTaskDBService;
 
 	public DownloadTask() {
-		// spec = "http://down.mumayi.com/25822";
-		spec = "http://down.mumayi.com/1";
-		localFile = Environment.getExternalStorageDirectory() + "/file/"
-				+ UUID.randomUUID().toString() + ".apk";
 		mDownloadTaskListeners = new ArrayList<DownloadTaskListener>();
+	}
+
+	public void recover(DownloadTask task) {
+		this.key = task.key;
+		this.name = task.name;
+		this.percent = task.percent;
+		this.startPosition = task.startPosition;
+		this.endPosition = task.endPosition;
+		this.downloadSize = task.downloadSize;
+		this.length = task.length;
+		this.path = task.path;
+		this.status = task.status;
+		this.isFinished = task.isFinished;
+		this.downloadURL = task.downloadURL;
 	}
 
 	public enum Status {
@@ -56,28 +102,35 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 
 	@Override
 	public String toString() {
-		return "DownloadTask [id=" + id + ", name=" + name + ", percent="
-				+ percent + ", status=" + status + ", isFinished=" + isFinished
-				+ "]";
+		return "DownloadTask [key=" + key + ", name=" + name + ", percent="
+				+ percent + ", startPosition=" + startPosition
+				+ ", endPosition=" + endPosition + ", downloadSize="
+				+ downloadSize + ", length=" + length + ", path=" + path
+				+ ", status=" + status + ", isFinished=" + isFinished
+				+ ", downloadURL=" + downloadURL + "]";
 	}
 
+	/**
+	 * 发起HTTP请求，拿到文件总长度，创建本地文件，保存数据库
+	 */
 	private void init() {
 		try {
-			URL url = new URL(spec);
+			URL url = new URL(downloadURL);
 			HttpURLConnection connection = (HttpURLConnection) url
 					.openConnection();
 			connection.setConnectTimeout(5000);
 			connection.setRequestMethod("GET");
-			fileSize = connection.getContentLength();
-			File file = new File(localFile);
+			length = connection.getContentLength();
+			File file = new File(path);
 			if (!file.exists()) {
 				file.createNewFile();
 			}
 			// 本地访问文件
 			RandomAccessFile accessFile = new RandomAccessFile(file, "rwd");
-			accessFile.setLength(fileSize);
+			accessFile.setLength(length);
 			accessFile.close();
 			connection.disconnect();
+			mTaskDBService.update(this);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -85,6 +138,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 
 	@Override
 	public DownloadResult call() throws Exception {
+		mTaskDBService = new TaskDBService(DownloadApp.getContext());
 		switch (status) {
 		case NOT_STARTED:
 			break;
@@ -100,54 +154,51 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		}
 		DownloadResult result = new DownloadResult();
 		result.status = DownloadResultStatus.OK;
+		// 设置变量判断是否是第一次加载
 		init();
 
-		URL url = new URL(spec);
-
-		File file = new File(localFile);
+		URL url = new URL(downloadURL);
+		File file = new File(path);
 		if (!file.exists()) {
 			System.out.println("file is not exists");
 		}
 		String dir = Environment.getExternalStorageDirectory() + "/file";
 		new File(dir).mkdir();
 		file.createNewFile();
+
+		// 从数据库恢复数据
+		// recover(mTaskDBService.getTask(key));
+
 		RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rwd");
-		randomAccessFile.seek(startPosition + completeSize);
+		randomAccessFile.seek(startPosition + downloadSize);
 
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		conn.setConnectTimeout(5000);
 		conn.setRequestMethod("GET");
-		int contentLength = endPosition = fileSize;
+		int contentLength = endPosition = length;
 		conn.setRequestProperty("Range", "bytes="
-				+ (startPosition + completeSize) + "-" + endPosition);
+				+ (startPosition + downloadSize) + "-" + endPosition);
 		System.out.println("startPos+Complete:"
-				+ (startPosition + completeSize) + "#endPos:" + endPosition);
-		// float sum = completeSize;
+				+ (startPosition + downloadSize) + "#endPos:" + endPosition);
 		InputStream input = conn.getInputStream();
 		BufferedReader in = new BufferedReader(new InputStreamReader(input));
-		// OutputStream output = new FileOutputStream(file);
 		byte[] buffer = new byte[4096];
 		int n = -1;
 		try {
 			while (!Thread.currentThread().isInterrupted()
 					&& ((n = input.read(buffer)) != -1)) {
 				randomAccessFile.write(buffer, 0, n);
-				// sum += n;
-				// completeSize = (int) sum;
-				completeSize += n;
-				// startPosition=completeSize;
-				percent = completeSize * 100.0f / contentLength;
-				System.out.println(completeSize + "/" + contentLength);
+				downloadSize += n;
+				percent = downloadSize * 100.0f / contentLength;
+				System.out.println(downloadSize + "/" + contentLength);
 				onTaskStatusChanged(this);
 			}
-			// output.flush();
 		} catch (Exception e) {
 			e.printStackTrace();
 			result.status = DownloadResultStatus.ERROR;
 			onTaskStatusChanged(this);
 		} finally {
 			try {
-				// output.close();
 				randomAccessFile.close();
 				in.close();
 				input.close();
@@ -155,7 +206,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 				e.printStackTrace();
 			}
 
-			if (completeSize >= contentLength) {
+			if (downloadSize >= contentLength) {
 				percent = 100;
 				status = Status.FINISHED;
 				isFinished = true;
@@ -190,11 +241,4 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 			downloadTaskListener.onTaskFinished(task);
 		}
 	}
-
-	// public void cancel() {
-	// System.out.println("cancel");
-	// isFinished = true;
-	// onTaskReceive(this);
-	// Thread.currentThread().interrupt();
-	// }
 }

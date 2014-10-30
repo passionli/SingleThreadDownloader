@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,7 +44,7 @@ public class DownloadActivity extends Activity {
 	private List<DownloadTask> mCompeletedItem;
 
 	private ExecutorService mExecutor;
-	private HashMap<String, Future<DownloadResult>> mFutures;
+	private ConcurrentHashMap<String, Future<DownloadResult>> mFutures;
 	private final int THREADS = 3;
 
 	private Executor mTemperaryExecutor;
@@ -117,7 +118,14 @@ public class DownloadActivity extends Activity {
 			android.content.res.Configuration newConfig) {
 		super.onConfigurationChanged(newConfig);
 		Log.d(TAG, "new orientation " + newConfig.orientation);
-	};
+	}
+	
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		//close database when application is closed.
+		mTaskDBService.close();
+	}
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -129,7 +137,7 @@ public class DownloadActivity extends Activity {
 		String path = Environment.getExternalStorageDirectory().toString();
 		mTaskDBService = new TaskDBService(this);
 		mListItem = mTaskDBService.getAllTask();
-		if (mListItem.size()==0) {
+		if (mListItem.size() == 0) {
 			for (int i = 0; i < 30; i++) {
 				DownloadTask task = new DownloadTask();
 				// 取当前时刻作为key
@@ -138,7 +146,8 @@ public class DownloadActivity extends Activity {
 				task.percent = 0;
 				task.status = Status.NOT_STARTED;
 				task.downloadURL = "http://down.mumayi.com/1";
-				task.path = path + "/file/" + UUID.randomUUID().toString() + ".apk";
+				task.path = path + "/file/" + UUID.randomUUID().toString()
+						+ ".apk";
 				mTaskDBService.create(task);
 			}
 		}
@@ -151,7 +160,7 @@ public class DownloadActivity extends Activity {
 		mListView.setAdapter(mDownloadListAdapter);
 
 		mExecutor = Executors.newFixedThreadPool(THREADS);
-		mFutures = new HashMap<String, Future<DownloadResult>>();
+		mFutures = new ConcurrentHashMap<String, Future<DownloadResult>>();
 		mTemperaryExecutor = Executors.newCachedThreadPool();
 
 	}
@@ -263,7 +272,7 @@ public class DownloadActivity extends Activity {
 								task.status = Status.WAITING;
 								mFutures.put(task.key, mExecutor.submit(task));
 								// 把状态告诉监听者。不然在executor上等待时无法告知监听者
-								task.onTaskStatusChanged(task);
+								// task.onTaskStatusChanged(task);
 								break;
 							case RUNNING:
 							case WAITING:// 等待状态下也要取消提交到executor上的任务
@@ -273,6 +282,9 @@ public class DownloadActivity extends Activity {
 								if (future != null) {
 									System.out.println("cancel result is "
 											+ future.cancel(true));
+								} else {
+									System.out.println("cancel future is null.Map containsKey is "
+											+ mFutures.containsKey(task.key));
 								}
 								break;
 							case FINISHED:
@@ -284,6 +296,7 @@ public class DownloadActivity extends Activity {
 							default:
 								break;
 							}
+							System.out.println(task);
 							// 把状态告诉监听者。不然在executor上等待时无法告知监听者
 							mTaskDBService.update(task);
 							task.onTaskStatusChanged(task);

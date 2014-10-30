@@ -80,6 +80,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 
 	public DownloadTask() {
 		mDownloadTaskListeners = new ArrayList<DownloadTaskListener>();
+		mTaskDBService = new TaskDBService(DownloadApp.getContext());
 	}
 
 	public void recover(DownloadTask task) {
@@ -138,7 +139,6 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 
 	@Override
 	public DownloadResult call() throws Exception {
-		mTaskDBService = new TaskDBService(DownloadApp.getContext());
 		switch (status) {
 		case NOT_STARTED:
 			break;
@@ -185,12 +185,15 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		byte[] buffer = new byte[4096];
 		int n = -1;
 		try {
-			while (!Thread.currentThread().isInterrupted()
+			while ((status == Status.RUNNING)
+					&& !Thread.currentThread().isInterrupted()
 					&& ((n = input.read(buffer)) != -1)) {
 				randomAccessFile.write(buffer, 0, n);
 				downloadSize += n;
 				percent = downloadSize * 100.0f / contentLength;
-				System.out.println(downloadSize + "/" + contentLength);
+				System.out.println(downloadSize + "/" + contentLength
+						+ "#status=" + status + "#interrupt="
+						+ Thread.currentThread().isInterrupted());
 				onTaskStatusChanged(this);
 			}
 		} catch (Exception e) {

@@ -104,7 +104,13 @@ public class TaskDBService {
 				task.startPosition, task.endPosition, task.downloadSize,
 				task.length, task.path, task.status.toString(),
 				task.isFinished, task.downloadURL, task.key });
-		db.close();
+		//db.close();
+	}
+	
+	public synchronized void close(){
+		if (openHelper!=null) {
+			openHelper.close();
+		}
 	}
 
 	public void delete(DownloadTask task) {

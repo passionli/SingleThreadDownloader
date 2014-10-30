@@ -208,6 +208,12 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
+			
+			// if (Thread.currentThread().isInterrupted()) {
+			// System.out.println("worker thread was interrupted");
+			// status=Status.PAUSING;
+			// onTaskStatusChanged(this);
+			// }
 
 			if (downloadSize >= contentLength) {
 				percent = 100;

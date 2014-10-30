@@ -2,13 +2,21 @@ package com.google.singlethreaddownloader;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import android.app.Activity;
 import android.content.Context;
@@ -42,16 +50,18 @@ public class DownloadActivity extends Activity {
 	 * 已完成队列
 	 */
 	private List<DownloadTask> mCompeletedItem;
-
+	private BlockingQueue<Runnable> mWorkerQueue;
 	private ExecutorService mExecutor;
 	private ConcurrentHashMap<String, Future<DownloadResult>> mFutures;
-	private final int THREADS = 30;
+	private final int nThreads = 3;
 
 	private Executor mTemperaryExecutor;
 	private static final int CMD_UPDATE_TASK = 1 << 1;
 	private static final int CMD_UPDATE_LISTVIEW = CMD_UPDATE_TASK + 1;
 
 	private TaskDBService mTaskDBService;
+
+	private boolean isDownloadBackground = false;
 
 	private Handler mHandler = new Handler() {
 		public void handleMessage(android.os.Message msg) {
@@ -119,12 +129,63 @@ public class DownloadActivity extends Activity {
 		super.onConfigurationChanged(newConfig);
 		Log.d(TAG, "new orientation " + newConfig.orientation);
 	}
-	
+
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		//close database when application is closed.
+		// close database when application is closed.
 		mTaskDBService.close();
+		mExecutor.shutdown();
+		try {
+			mExecutor.awaitTermination(0, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	protected void onStop() {
+		super.onStop();
+		Log.d(TAG, "protected void onStop()");
+		if (!isDownloadBackground) {
+			int size = mListItem.size();
+			for (int i = 0; i < size && mFutures.size() > 0; i++) {
+				DownloadTask task = mListItem.get(i);
+				switch (task.status) {
+				case RUNNING:
+				case WAITING:
+					task.status = Status.PAUSING;
+					Future<DownloadResult> future = mFutures.get(task.key);
+					if (future != null) {
+						System.out.println("cancel result is "
+								+ future.cancel(true));
+					} else {
+						System.out
+								.println("cancel future is null.Map containsKey is "
+										+ mFutures.containsKey(task.key));
+					}
+					
+					System.out.println("workerQueue size is " + mWorkerQueue.size()
+							+ "#" + task);
+					// 把状态告诉监听者。不然在executor上等待时无法告知监听者
+					task.onTaskStatusChanged(task);
+					mTaskDBService.update(task);
+					break;
+				default:
+					break;
+				}
+			}
+		}
+	}
+
+	@Override
+	protected void onRestart() {
+		super.onRestart();
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
 	}
 
 	@Override
@@ -159,10 +220,11 @@ public class DownloadActivity extends Activity {
 		mDownloadListAdapter = new DownloadListAdapter(this);
 		mListView.setAdapter(mDownloadListAdapter);
 
-		mExecutor = Executors.newFixedThreadPool(THREADS);
+		mWorkerQueue = new LinkedBlockingQueue<Runnable>();
+		mExecutor = new ThreadPoolExecutor(nThreads, nThreads, 0L,
+				TimeUnit.MILLISECONDS, mWorkerQueue);
 		mFutures = new ConcurrentHashMap<String, Future<DownloadResult>>();
 		mTemperaryExecutor = Executors.newCachedThreadPool();
-
 	}
 
 	private void updateListViewItem(ViewHolder holder, DownloadTask task) {
@@ -296,7 +358,8 @@ public class DownloadActivity extends Activity {
 							default:
 								break;
 							}
-							System.out.println(task);
+							System.out.println("workerQueue size is "
+									+ mWorkerQueue.size() + "#" + task);
 							// 把状态告诉监听者。不然在executor上等待时无法告知监听者
 							mTaskDBService.update(task);
 							task.onTaskStatusChanged(task);

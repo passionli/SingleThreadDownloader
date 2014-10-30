@@ -45,7 +45,7 @@ public class DownloadActivity extends Activity {
 
 	private ExecutorService mExecutor;
 	private ConcurrentHashMap<String, Future<DownloadResult>> mFutures;
-	private final int THREADS = 3;
+	private final int THREADS = 30;
 
 	private Executor mTemperaryExecutor;
 	private static final int CMD_UPDATE_TASK = 1 << 1;

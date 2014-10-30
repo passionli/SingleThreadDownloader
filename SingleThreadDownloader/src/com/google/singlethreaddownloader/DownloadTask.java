@@ -60,7 +60,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 	/**
 	 * 任务状态
 	 */
-	public Status status;
+	public volatile Status status;
 	/**
 	 * 是否完成
 	 */
@@ -185,7 +185,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		byte[] buffer = new byte[4096];
 		int n = -1;
 		try {
-			while ((status == Status.RUNNING)
+			while ((status == Status.RUNNING) && (downloadSize < length)
 					&& !Thread.currentThread().isInterrupted()
 					&& ((n = input.read(buffer)) != -1)) {
 				randomAccessFile.write(buffer, 0, n);

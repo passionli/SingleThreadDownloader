@@ -53,7 +53,7 @@ public class DownloadActivity extends Activity {
 	private BlockingQueue<Runnable> mWorkerQueue;
 	private ExecutorService mExecutor;
 	private ConcurrentHashMap<String, Future<DownloadResult>> mFutures;
-	private final int nThreads = 3;
+	private int nThreads = 1;
 
 	private Executor mTemperaryExecutor;
 	private static final int CMD_UPDATE_TASK = 1 << 1;
@@ -164,9 +164,9 @@ public class DownloadActivity extends Activity {
 								.println("cancel future is null.Map containsKey is "
 										+ mFutures.containsKey(task.key));
 					}
-					
-					System.out.println("workerQueue size is " + mWorkerQueue.size()
-							+ "#" + task);
+
+					System.out.println("workerQueue size is "
+							+ mWorkerQueue.size() + "#" + task);
 					// 把状态告诉监听者。不然在executor上等待时无法告知监听者
 					task.onTaskStatusChanged(task);
 					mTaskDBService.update(task);
@@ -221,6 +221,9 @@ public class DownloadActivity extends Activity {
 		mListView.setAdapter(mDownloadListAdapter);
 
 		mWorkerQueue = new LinkedBlockingQueue<Runnable>();
+
+		nThreads = Runtime.getRuntime().availableProcessors();
+		Log.d(TAG, "availableProcessors is " + nThreads);
 		mExecutor = new ThreadPoolExecutor(nThreads, nThreads, 0L,
 				TimeUnit.MILLISECONDS, mWorkerQueue);
 		mFutures = new ConcurrentHashMap<String, Future<DownloadResult>>();

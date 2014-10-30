@@ -5,12 +5,20 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 public class TaskOpenHelper extends SQLiteOpenHelper {
+	private static TaskOpenHelper sInstance;
 	private static final String DBNAME = "single_thread_downloader.db";
 	public static final String TABLE_NAME = "task";
 	private static final int VERSION = 1;
 
 	public TaskOpenHelper(Context context) {
 		super(context, DBNAME, null, VERSION);
+	}
+
+	public static synchronized TaskOpenHelper getInstance(Context context) {
+		if (sInstance == null) {
+			sInstance = new TaskOpenHelper(context.getApplicationContext());
+		}
+		return sInstance;
 	}
 
 	@Override

@@ -13,7 +13,7 @@ public class TaskDBService {
 	private TaskOpenHelper openHelper;
 
 	public TaskDBService(Context context) {
-		openHelper = new TaskOpenHelper(context);
+		openHelper = TaskOpenHelper.getInstance(context);
 	}
 
 	public DownloadTask getTask(String key) {
@@ -92,7 +92,12 @@ public class TaskDBService {
 		db.close();
 	}
 
-	public void update(DownloadTask task) {
+	/**
+	 * 可能多个线程并发调用
+	 * 
+	 * @param task
+	 */
+	public synchronized void update(DownloadTask task) {
 		SQLiteDatabase db = openHelper.getWritableDatabase();
 		String sql = "update task set name=?,percent=?,startPosition=?,endPosition=?,downloadSize = ?,length=?,path=?,status=?,isFinished=?,downloadURL=? where key = ? ";
 		db.execSQL(sql, new Object[] { task.name, task.percent,

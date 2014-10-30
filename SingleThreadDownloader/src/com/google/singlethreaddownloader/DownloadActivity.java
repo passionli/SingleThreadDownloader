@@ -8,9 +8,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
 
-import android.R.integer;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
@@ -23,7 +21,6 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.ListView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.singlethreaddownloader.DownloadTask.Status;
@@ -85,7 +82,7 @@ public class DownloadActivity extends Activity {
 		@Override
 		public void onTaskStatusChanged(DownloadTask task) {
 			// 状态改变保存数据库
-			//mTaskDBService.save(task);
+			// mTaskDBService.save(task);
 			int size = mListItem.size();
 			for (int i = 0; i < size; i++) {
 				DownloadTask oldTask = mListItem.get(i);
@@ -131,19 +128,20 @@ public class DownloadActivity extends Activity {
 		mListItem = new ArrayList<DownloadTask>();
 		String path = Environment.getExternalStorageDirectory().toString();
 		mTaskDBService = new TaskDBService(this);
-		// for (int i = 0; i < 30; i++) {
-		// DownloadTask task = new DownloadTask();
-		// // 取当前时刻作为key
-		// task.key = String.valueOf(System.currentTimeMillis());
-		// task.name = "task " + i;
-		// task.percent = 0;
-		// task.status = Status.NOT_STARTED;
-		// task.downloadURL = "http://down.mumayi.com/1";
-		// task.path = path + "/file/" + UUID.randomUUID().toString() + ".apk";
-		// mTaskDBService.create(task);
-		// // task.registeDownloadListener(mDownloadTaskListener);
-		// // mListItem.add(task);
-		// }
+		mListItem = mTaskDBService.getAllTask();
+		if (mListItem.size()==0) {
+			for (int i = 0; i < 30; i++) {
+				DownloadTask task = new DownloadTask();
+				// 取当前时刻作为key
+				task.key = String.valueOf(System.currentTimeMillis());
+				task.name = "task " + i;
+				task.percent = 0;
+				task.status = Status.NOT_STARTED;
+				task.downloadURL = "http://down.mumayi.com/1";
+				task.path = path + "/file/" + UUID.randomUUID().toString() + ".apk";
+				mTaskDBService.create(task);
+			}
+		}
 		mListItem = mTaskDBService.getAllTask();
 		// 添加监听器
 		for (DownloadTask task : mListItem) {
@@ -272,8 +270,10 @@ public class DownloadActivity extends Activity {
 								task.status = Status.PAUSING;
 								Future<DownloadResult> future = mFutures
 										.get(task.key);
-								System.out.println("cancel result is "
-										+ future.cancel(true));
+								if (future != null) {
+									System.out.println("cancel result is "
+											+ future.cancel(true));
+								}
 								break;
 							case FINISHED:
 								task.status = Status.REMOVED;

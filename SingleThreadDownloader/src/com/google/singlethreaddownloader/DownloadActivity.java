@@ -1,11 +1,7 @@
 package com.google.singlethreaddownloader;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,12 +9,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Environment;
@@ -61,9 +57,10 @@ public class DownloadActivity extends Activity {
 
 	private TaskDBService mTaskDBService;
 
-	private boolean isDownloadBackground = false;
+	private final boolean isDownloadBackground = false;
 
-	private Handler mHandler = new Handler() {
+	private final Handler mHandler = new Handler() {
+		@Override
 		public void handleMessage(android.os.Message msg) {
 			int what = msg.what;
 			switch (what) {
@@ -228,6 +225,8 @@ public class DownloadActivity extends Activity {
 				TimeUnit.MILLISECONDS, mWorkerQueue);
 		mFutures = new ConcurrentHashMap<String, Future<DownloadResult>>();
 		mTemperaryExecutor = Executors.newCachedThreadPool();
+
+		DownloadManager manager;
 	}
 
 	private void updateListViewItem(ViewHolder holder, DownloadTask task) {
@@ -282,7 +281,7 @@ public class DownloadActivity extends Activity {
 	public class DownloadListAdapter extends BaseAdapter {
 		protected final String TAG = DownloadListAdapter.class.getSimpleName();
 		Context context;
-		private LayoutInflater layoutInflater;
+		private final LayoutInflater layoutInflater;
 
 		public DownloadListAdapter(Context context) {
 			this.context = context;

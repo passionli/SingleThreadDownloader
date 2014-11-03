@@ -12,11 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import android.app.Application;
-import android.content.Context;
 import android.os.Environment;
 
 import com.google.singlethreaddownloader.DownloadResult.DownloadResultStatus;
+import com.google.singlethreaddownloader.dao.SqlTaskDao;
 
 public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		DownloadTaskListener {
@@ -56,7 +55,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 	/**
 	 * 文件本地路径
 	 */
-	public String path;
+	public String localPath;
 	/**
 	 * 任务状态
 	 */
@@ -72,15 +71,17 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 	/**
 	 * 任务监听器队列
 	 */
-	private List<DownloadTaskListener> mDownloadTaskListeners;
+	private final List<DownloadTaskListener> mDownloadTaskListeners;
 	/**
 	 * 数据库业务类
 	 */
-	private TaskDBService mTaskDBService;
+	private final SqlTaskDao mTaskDao;
 
 	public DownloadTask() {
+		percent = 0.0f;
+		status = Status.NOT_STARTED;
 		mDownloadTaskListeners = new ArrayList<DownloadTaskListener>();
-		mTaskDBService = new TaskDBService(DownloadApp.getContext());
+		mTaskDao = new SqlTaskDao(DownloadApp.getContext());
 	}
 
 	public void recover(DownloadTask task) {
@@ -91,7 +92,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		this.endPosition = task.endPosition;
 		this.downloadSize = task.downloadSize;
 		this.length = task.length;
-		this.path = task.path;
+		this.localPath = task.localPath;
 		this.status = task.status;
 		this.isFinished = task.isFinished;
 		this.downloadURL = task.downloadURL;
@@ -106,7 +107,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		return "DownloadTask [key=" + key + ", name=" + name + ", percent="
 				+ percent + ", startPosition=" + startPosition
 				+ ", endPosition=" + endPosition + ", downloadSize="
-				+ downloadSize + ", length=" + length + ", path=" + path
+				+ downloadSize + ", length=" + length + ", path=" + localPath
 				+ ", status=" + status + ", isFinished=" + isFinished
 				+ ", downloadURL=" + downloadURL + "]";
 	}
@@ -122,7 +123,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 			connection.setConnectTimeout(5000);
 			connection.setRequestMethod("GET");
 			length = connection.getContentLength();
-			File file = new File(path);
+			File file = new File(localPath);
 			if (!file.exists()) {
 				file.createNewFile();
 			}
@@ -131,7 +132,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 			accessFile.setLength(length);
 			accessFile.close();
 			connection.disconnect();
-			mTaskDBService.update(this);
+			mTaskDao.update(this);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -158,7 +159,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 		init();
 
 		URL url = new URL(downloadURL);
-		File file = new File(path);
+		File file = new File(localPath);
 		if (!file.exists()) {
 			System.out.println("file is not exists");
 		}
@@ -191,9 +192,9 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 				randomAccessFile.write(buffer, 0, n);
 				downloadSize += n;
 				percent = downloadSize * 100.0f / contentLength;
-				System.out.println(downloadSize + "/" + contentLength
-						+ "#status=" + status + "#interrupt="
-						+ Thread.currentThread().isInterrupted());
+				// System.out.println(downloadSize + "/" + contentLength
+				// + "#status=" + status + "#interrupt="
+				// + Thread.currentThread().isInterrupted());
 				onTaskStatusChanged(this);
 			}
 		} catch (Exception e) {
@@ -208,7 +209,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-			
+
 			// if (Thread.currentThread().isInterrupted()) {
 			// System.out.println("worker thread was interrupted");
 			// status=Status.PAUSING;

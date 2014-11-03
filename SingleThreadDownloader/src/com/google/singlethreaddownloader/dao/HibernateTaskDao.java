@@ -25,15 +25,20 @@ public class HibernateTaskDao implements TaskDao {
 	}
 
 	@Override
-	public boolean findTaskByName(String key) {
+	public DownloadTask getTask(String key) {
 		// TODO Auto-generated method stub
-		return false;
+		return null;
 	}
 
 	@Override
-	public List<DownloadTask> findAllTasks() {
+	public List<DownloadTask> getAllTasks() {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public void close() {
+		// TODO Auto-generated method stub
 	}
 
 }

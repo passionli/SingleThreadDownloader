@@ -1,4 +1,4 @@
-package com.google.singlethreaddownloader;
+package com.google.singlethreaddownloader.dao;
 
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
@@ -19,7 +19,7 @@ public class TaskOpenHelper extends SQLiteOpenHelper {
 	public static final String COLUMN_LENGTH = "length";
 	public static final String COLUMN_PATH = "path";
 	public static final String COLUMN_STATUS = "status";
-	public static final String COLUMN_ISFINISHED = "isFinished";
+	public static final String COLUMN_IS_FINISHED = "isFinished";
 	public static final String COLUMN_DOWNLOAD_URL = "downloadURL";
 
 	public TaskOpenHelper(Context context) {
@@ -41,7 +41,7 @@ public class TaskOpenHelper extends SQLiteOpenHelper {
 				+ " FLOAT," + COLUMN_START_POSITION + " INTEGER," + COLUMN_END_POSITION
 				+ " INTEGER," + COLUMN_DOWNLOAD_SIZE + " INTEGER," + COLUMN_LENGTH
 				+ " INTEGER," + COLUMN_PATH + " varchar(200)," + COLUMN_STATUS
-				+ " VARCHAR(50)," + COLUMN_ISFINISHED + " INGETER, " + COLUMN_DOWNLOAD_URL
+				+ " VARCHAR(50)," + COLUMN_IS_FINISHED + " INGETER, " + COLUMN_DOWNLOAD_URL
 				+ " varchar(100))");
 	}
 

@@ -4,6 +4,8 @@ import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
+import com.google.singlethreaddownloader.util.AppUtil;
+
 public class DownloadApp extends Application {
 	private static final String TAG = "DownloadApp";
 	private static Context context;
@@ -12,6 +14,8 @@ public class DownloadApp extends Application {
 	public void onCreate() {
 		super.onCreate();
 		Log.d(TAG, "onCreate");
+		AppUtil.AVAILABLE_PROCESSORS = Runtime.getRuntime()
+				.availableProcessors();
 	}
 
 	public DownloadApp() {

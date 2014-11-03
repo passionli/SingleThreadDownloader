@@ -1,4 +1,4 @@
-package com.google.singlethreaddownloader;
+package com.google.singlethreaddownloader.dao;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,6 +7,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.google.singlethreaddownloader.DownloadTask;
 import com.google.singlethreaddownloader.DownloadTask.Status;
 
 public class TaskDBService {
@@ -36,13 +37,13 @@ public class TaskDBService {
 				.getColumnIndex(TaskOpenHelper.COLUMN_DOWNLOAD_SIZE));
 		task.length = cursor.getInt(cursor
 				.getColumnIndex(TaskOpenHelper.COLUMN_LENGTH));
-		task.path = cursor.getString(cursor
+		task.localPath = cursor.getString(cursor
 				.getColumnIndex(TaskOpenHelper.COLUMN_PATH));
 		// 数据库中保存枚举为String
 		task.status = Status.valueOf(cursor.getString(cursor
 				.getColumnIndex(TaskOpenHelper.COLUMN_STATUS)));
 		task.isFinished = cursor.getInt(cursor
-				.getColumnIndex(TaskOpenHelper.COLUMN_ISFINISHED)) > 0;
+				.getColumnIndex(TaskOpenHelper.COLUMN_IS_FINISHED)) > 0;
 		task.downloadURL = cursor.getString(cursor
 				.getColumnIndex(TaskOpenHelper.COLUMN_DOWNLOAD_URL));
 		return task;
@@ -69,13 +70,13 @@ public class TaskDBService {
 					.getColumnIndex(TaskOpenHelper.COLUMN_DOWNLOAD_SIZE));
 			task.length = cursor.getInt(cursor
 					.getColumnIndex(TaskOpenHelper.COLUMN_LENGTH));
-			task.path = cursor.getString(cursor
+			task.localPath = cursor.getString(cursor
 					.getColumnIndex(TaskOpenHelper.COLUMN_PATH));
 			// 数据库中保存枚举为String
 			task.status = Status.valueOf(cursor.getString(cursor
 					.getColumnIndex(TaskOpenHelper.COLUMN_STATUS)));
 			task.isFinished = cursor.getInt(cursor
-					.getColumnIndex(TaskOpenHelper.COLUMN_ISFINISHED)) > 0;
+					.getColumnIndex(TaskOpenHelper.COLUMN_IS_FINISHED)) > 0;
 			task.downloadURL = cursor.getString(cursor
 					.getColumnIndex(TaskOpenHelper.COLUMN_DOWNLOAD_URL));
 			list.add(task);
@@ -91,7 +92,7 @@ public class TaskDBService {
 						+ "(key, name, percent,startPosition,endPosition,downloadSize,length,path,status,isFinished,downloadURL) values(?,?,?,?,?,?,?,?,?,?,?)",
 				new Object[] { task.key, task.name, task.percent,
 						task.startPosition, task.endPosition,
-						task.downloadSize, task.length, task.path,
+						task.downloadSize, task.length, task.localPath,
 						task.status.toString(), task.isFinished,
 						task.downloadURL });
 		db.close();
@@ -114,7 +115,7 @@ public class TaskDBService {
 		String sql = "update task set name=?,percent=?,startPosition=?,endPosition=?,downloadSize = ?,length=?,path=?,status=?,isFinished=?,downloadURL=? where key = ? ";
 		db.execSQL(sql, new Object[] { task.name, task.percent,
 				task.startPosition, task.endPosition, task.downloadSize,
-				task.length, task.path, task.status.toString(),
+				task.length, task.localPath, task.status.toString(),
 				task.isFinished, task.downloadURL, task.key });
 		// db.close();
 	}

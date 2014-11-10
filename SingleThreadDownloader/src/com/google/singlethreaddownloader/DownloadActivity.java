@@ -91,7 +91,17 @@ public class DownloadActivity extends Activity {
 
 		@Override
 		public void onTaskFinished(DownloadTask task) {
-
+			int size = mListItem.size();
+			for (int i = 0; i < size; i++) {
+				DownloadTask oldTask = mListItem.get(i);
+				if (oldTask.key.equals(task.key)) {
+					mListItem.set(i, task);
+					// 异步刷新界面
+					mHandler.sendMessage(mHandler.obtainMessage(
+							CMD_UPDATE_TASK, i, 0));
+					break;
+				}
+			}
 		}
 	};
 
@@ -296,7 +306,7 @@ public class DownloadActivity extends Activity {
 								break;
 							}
 							// 把状态告诉监听者。不然在executor上等待时无法告知监听者
-							task.onTaskStatusChanged(task);
+							task.notifyTaskStatusChanged(task);
 						}
 					});
 				}

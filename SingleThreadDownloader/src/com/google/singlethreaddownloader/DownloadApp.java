@@ -16,6 +16,8 @@ public class DownloadApp extends Application {
 		Log.d(TAG, "onCreate");
 		AppUtil.AVAILABLE_PROCESSORS = Runtime.getRuntime()
 				.availableProcessors();
+		Log.d(TAG, "AppUtil.AVAILABLE_PROCESSORS="
+				+ AppUtil.AVAILABLE_PROCESSORS);
 	}
 
 	public DownloadApp() {

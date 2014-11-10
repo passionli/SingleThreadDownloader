@@ -8,17 +8,16 @@ import java.io.RandomAccessFile;
 import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import android.os.Environment;
 
 import com.google.singlethreaddownloader.DownloadResult.DownloadResultStatus;
 import com.google.singlethreaddownloader.dao.SqlTaskDao;
 
-public class DownloadTask implements Serializable, Callable<DownloadResult>,
-		DownloadTaskListener {
+public class DownloadTask implements Serializable, Callable<DownloadResult> {
 	/**
 	 * 序列化id
 	 */
@@ -80,7 +79,7 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 	public DownloadTask() {
 		percent = 0.0f;
 		status = Status.NOT_STARTED;
-		mDownloadTaskListeners = new ArrayList<DownloadTaskListener>();
+		mDownloadTaskListeners = new CopyOnWriteArrayList<DownloadTaskListener>();
 		mTaskDao = new SqlTaskDao(DownloadApp.getContext());
 	}
 
@@ -192,15 +191,15 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 				randomAccessFile.write(buffer, 0, n);
 				downloadSize += n;
 				percent = downloadSize * 100.0f / contentLength;
-				// System.out.println(downloadSize + "/" + contentLength
-				// + "#status=" + status + "#interrupt="
-				// + Thread.currentThread().isInterrupted());
-				onTaskStatusChanged(this);
+				System.out.println(downloadSize + "/" + contentLength
+						+ "#status=" + status + "#interrupt="
+						+ Thread.currentThread().isInterrupted());
+				notifyTaskStatusChanged(this);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			result.status = DownloadResultStatus.ERROR;
-			onTaskStatusChanged(this);
+			notifyTaskStatusChanged(this);
 		} finally {
 			try {
 				randomAccessFile.close();
@@ -223,30 +222,32 @@ public class DownloadTask implements Serializable, Callable<DownloadResult>,
 			}
 
 			if (isFinished) {
-				onTaskFinished(this);
+				notifyTaskFinished(this);
 			}
 		}
 
 		return result;
 	}
 
-	@Override
-	public void onTaskStatusChanged(DownloadTask task) {
+	public synchronized void notifyTaskStatusChanged(DownloadTask task) {
+		// Log.d(TAG,
+		// "mDownloadTaskListeners size is "+mDownloadTaskListeners.size());
 		for (DownloadTaskListener downloadTaskListener : mDownloadTaskListeners) {
 			downloadTaskListener.onTaskStatusChanged(task);
 		}
 	}
 
-	public void registeDownloadListener(DownloadTaskListener listener) {
+	public synchronized void registeDownloadListener(
+			DownloadTaskListener listener) {
 		this.mDownloadTaskListeners.add(listener);
 	}
 
-	public void unregisteDownloadListener(DownloadTaskListener listener) {
+	public synchronized void unregisteDownloadListener(
+			DownloadTaskListener listener) {
 		this.mDownloadTaskListeners.remove(listener);
 	}
 
-	@Override
-	public void onTaskFinished(DownloadTask task) {
+	public synchronized void notifyTaskFinished(DownloadTask task) {
 		for (DownloadTaskListener downloadTaskListener : mDownloadTaskListeners) {
 			downloadTaskListener.onTaskFinished(task);
 		}

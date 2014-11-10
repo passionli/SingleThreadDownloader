@@ -43,7 +43,7 @@ public class DownloadManager {
 		public void onTaskFinished(DownloadTask task) {
 			Log.d(TAG, "onTaskFinished " + task);
 			// 及时清理引用
-			//mFutures.remove(task.key);
+			// mFutures.remove(task.key);
 			mTasks.put(task.key, task);
 			// 状态改变保存数据库
 			mTaskDao.update(task);
@@ -56,6 +56,7 @@ public class DownloadManager {
 		mTaskDao = new SqlTaskDao(mContext);
 		// 这个对开发者是透明的，减少复杂度
 		nThreads = AppUtil.AVAILABLE_PROCESSORS;
+		Log.d(TAG, "nThreads=" + nThreads);
 		mExecutor = Executors.newFixedThreadPool(nThreads);
 		mFutures = new ConcurrentHashMap<String, Future<DownloadResult>>();
 	}
@@ -128,7 +129,12 @@ public class DownloadManager {
 		// }
 	}
 
-	public void start(DownloadTask task) {
+	public synchronized void start(DownloadTask task) {
+		if (mFutures.containsKey(task.key)) {
+			Log.d(TAG, "task " + task.key + " is already in the queue ");
+			return;
+		}
+
 		task.registeDownloadListener(mDownloadTaskListener);
 		// 加入等待队列
 		task.status = Status.WAITING;
@@ -137,7 +143,13 @@ public class DownloadManager {
 		mTaskDao.update(task);
 	}
 
-	public void pause(DownloadTask task) {
+	public synchronized void pause(DownloadTask task) {
+		if (!mFutures.containsKey(task.key)) {
+			return;
+		}
+
+		//及时注销，减少开销
+		task.unregisteDownloadListener(mDownloadTaskListener);
 		task.status = Status.PAUSING;
 		Future<DownloadResult> future = mFutures.get(task.key);
 		boolean cancelResult = false;
